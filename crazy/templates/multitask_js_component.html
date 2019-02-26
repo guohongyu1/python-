@@ -1,0 +1,93 @@
+<script>
+        function ItemToggle(ele) {
+            $(ele).next().toggle()
+        }
+
+        function PostTask(self,task_type) {
+            var select_host_id = []
+            $("[tag='host_select']:checked").each(function () {
+                select_host_id.push($(this).val())
+            })
+            task_arguments = {}
+            if (select_host_id == 0) {
+                alert('please select post')
+                return false
+            }
+            if(task_type == 'cmd'){
+                var cmd_text = $("#CmdText").val().trim()
+                if (cmd_text == 0) {
+                alert('please input cmd')
+                return false
+            }
+            var task_arguments = {
+                'select_host_id': select_host_id,
+                'cmd_text': cmd_text,
+                'task_type': 'cmd'
+            }
+            }
+            else{
+                var local_file_path=$("#local_file_path").val()
+                var remote_file_path=$("#remote_file_path").val()
+                var file_transfer_type=$("#file_transfer_type").val()
+                if(remote_file_path.length ==0){
+                    alert('请输入传输到的远程路径')
+                    return false;
+                }
+                if(file_transfer_type == 'send') {
+                    if(local_file_path.length == 0){
+                     alert('请输入传输文件的本地路径')
+                        return false;
+                    }
+                }
+                var task_arguments = {
+                    'select_host_id': select_host_id,
+                    'file_transfer_type': file_transfer_type,
+                    'task_type': 'file_transfer',
+                    'local_file_path':local_file_path,
+                    'remote_file_path':remote_file_path
+
+            }
+            }
+             $(self).addClass('disabled')
+            $("#TaskResult").empty()
+            $.post("{% url 'batch_task_mgr' %}", {'task_arguments': JSON.stringify(task_arguments)}, function (callback) {
+                {#console.log('task callback' + callback)#}
+                var callback=JSON.parse(callback)
+                $.each(callback.select_hosts, function (index, ele) {
+                    var li_ele = "<li log_id='"+ele['id']+"'>HOST:......"+ele.host_to_remoteuser__host__name+"("+ele.host_to_remoteuser__host__id_addr+")......<span tag='log_status'></span></li>"
+                    li_ele+="<pre>waiting for result</pre>"
+                    $("#TaskResult").append(li_ele)
+                })
+                ResultRefreshObj=setInterval(function () {
+                    GetTaskResult(callback.task_id)
+                },2000)
+            })
+        }
+        function GetTaskResult(task_id){
+            $.getJSON("{% url 'get_task_result' %}",{'task_id':task_id},function(callback){
+                console.log(callback)
+                all_task_status=true
+                $.each(callback,function (index,ele) {
+                    var li_ele=$("li[log_id="+ele['id']+"]")
+                    li_ele.children().first().text(ele["task_status"])
+                    li_ele.next().text(ele['result'])
+                    if(ele["task_status"] == 0){
+                        all_task_status=false
+                    }
+                    if(all_task_status){
+                        clearInterval(ResultRefreshObj)
+                        $("#task_submit_btn").removeClass("disabled")
+                    }
+
+                })
+            })
+        }
+        function CheckFileTransferType(ele) {
+            if($(ele).val() == 'send'){
+                $("#local_file_path").removeClass('hide')
+            }
+            else {
+                $("#local_file_path").addClass('hide')
+            }
+        }
+    </script>
